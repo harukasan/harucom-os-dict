@@ -1,9 +1,9 @@
 # Rakefile for harucom-os-dict
 #
 # Build pipeline:
-#   data/SKK-JISYO.M    -> build/skk.bin    (hash table)
-#   data/tcode-table.txt -> build/tcode.bin  (40x40 lookup)
-#   build/skk.bin + build/tcode.bin -> build/dict.bin (combined)
+#   data/skk-dev-dict/SKK-JISYO.M -> build/skk.bin    (hash table)
+#   data/tc/tc-tbl.el             -> build/tcode.bin   (40x40 lookup)
+#   build/skk.bin + build/tcode.bin -> build/dict.bin  (combined)
 #   build/dict.bin -> build/dict.uf2 (UF2 for picotool)
 
 DICT_XIP_BASE = 0x10600000
@@ -12,8 +12,8 @@ BUILD_DIR = "build"
 directory BUILD_DIR
 
 SCRIPTS = "scripts"
-SKK_SRC = "data/SKK-JISYO.M"
-TCODE_SRC = "data/tcode-table.txt"
+SKK_SRC = "data/skk-dev-dict/SKK-JISYO.M"
+TCODE_SRC = "data/tc/tc-tbl.el"
 
 task default: :uf2
 
@@ -52,7 +52,7 @@ end
 
 file "#{BUILD_DIR}/dict.bin" => dict_deps do
   if dict_args.empty?
-    abort "Error: no dictionary data found. Place SKK-JISYO.M and/or tcode-table.txt in data/"
+    abort "Error: no dictionary data found. Run 'git submodule update --init' first."
   end
   sh "ruby #{SCRIPTS}/pack_dict.rb #{dict_args.join(' ')} -o #{BUILD_DIR}/dict.bin"
 end

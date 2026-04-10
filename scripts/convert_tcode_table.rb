@@ -1,36 +1,51 @@
 # Convert T-Code stroke table to binary lookup table.
 #
-# Input:  Text file with lines of "key1key2 character" (e.g. "fj 漢")
+# Input:  tc-tbl.el from the tc package (Emacs Lisp)
 # Output: Binary 40x40 table of uint16 Unicode codepoints
 #
 # Usage:
-#   ruby convert_tcode_table.rb tcode-table.txt -o tcode.bin
+#   ruby convert_tcode_table.rb data/tc/tc-tbl.el -o tcode.bin
 
 require "optparse"
 
-KEY_MAP = "1234567890qwertyuiopasdfghjkl;zxcvbnm,./"
-KEY_COUNT = KEY_MAP.size  # 40
+KEY_COUNT = 40
 
-def read_tcode_table(path)
+# Characters to skip (not actual kanji/kana)
+SPECIAL_CHARS = ["■", "◆", "◇", "◈"]
+
+def read_tcode_tbl_el(path)
   table = Array.new(KEY_COUNT * KEY_COUNT, 0)
 
-  File.open(path, "r:UTF-8") do |f|
-    f.each_line do |line|
-      line.chomp!
-      next if line.empty? || line.start_with?("#")
+  content = File.read(path, encoding: "UTF-8")
 
-      keys, char = line.split(/\s+/, 2)
-      next unless keys && char && keys.size == 2
+  # Extract the tcode-tbl vector: lines between (setq tcode-tbl [ and ])
+  in_table = false
+  row = 0
+  content.each_line do |line|
+    if line.include?("(setq tcode-tbl [")
+      in_table = true
+      next
+    end
+    if in_table && line.include?("])")
+      break
+    end
+    next unless in_table
 
-      k1 = KEY_MAP.index(keys[0])
-      k2 = KEY_MAP.index(keys[1])
-      next unless k1 && k2
+    # Extract the string content between quotes
+    m = line.match(/"(.+)"/)
+    next unless m
 
-      cp = char.ord
+    chars = m[1].chars
+    chars.each_with_index do |ch, col|
+      next if col >= KEY_COUNT
+      next if SPECIAL_CHARS.include?(ch)
+
+      cp = ch.ord
       next if cp == 0 || cp > 0xFFFF
 
-      table[k1 * KEY_COUNT + k2] = cp
+      table[row * KEY_COUNT + col] = cp
     end
+    row += 1
   end
 
   table
@@ -47,7 +62,7 @@ end
 
 output_path = nil
 OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} TCODE-TABLE-FILE -o OUTPUT"
+  opts.banner = "Usage: #{$0} TC-TBL-EL-FILE -o OUTPUT"
   opts.on("-o FILE", "Output binary file") { |f| output_path = f }
 end.parse!
 
@@ -61,9 +76,9 @@ unless output_path
   exit 1
 end
 
-table = read_tcode_table(input_path)
+table = read_tcode_tbl_el(input_path)
 count = table.count { |cp| cp != 0 }
-$stderr.puts "Read #{count} entries from #{input_path}"
+$stderr.puts "Read #{count} characters from #{input_path}"
 
 bin = pack_tcode(table)
 File.open(output_path, "wb") { |f| f.write(bin) }

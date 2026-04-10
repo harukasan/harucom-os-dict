@@ -1,0 +1,6 @@
+[submodule "data/skk-dev-dict"]
+	path = data/skk-dev-dict
+	url = https://github.com/skk-dev/dict
+[submodule "data/tc"]
+	path = data/tc
+	url = https://github.com/kanchoku/tc
