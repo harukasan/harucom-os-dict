@@ -3,12 +3,56 @@
 # Input:  SKK-JISYO file (EUC-JP encoded)
 # Output: Binary hash table for flash dictionary region
 #
+# Readings are stored in a compact 1-byte-per-kana encoding to reduce
+# flash size and improve XIP cache hit rate. Hiragana U+3041-U+3096 is
+# encoded as 0x01-0x56; ASCII bytes (used for okurigana markers) are
+# stored as-is. The C lookup function applies the same encoding to the
+# query before hashing and comparison.
+#
 # Usage:
 #   ruby convert_skk_jisyo.rb SKK-JISYO.M -o skk.bin
 
 require "optparse"
 
 BUCKET_RATIO = 1.5  # buckets = entries * ratio
+
+# Hiragana compact encoding: U+3041..U+3096 -> 0x01..0x56
+HIRAGANA_BASE = 0x3041
+HIRAGANA_END  = 0x3096
+
+def encode_reading(utf8_reading)
+  out = String.new(encoding: "BINARY")
+  i = 0
+  bytes = utf8_reading.b
+  while i < bytes.bytesize
+    b = bytes.getbyte(i)
+    if b < 0x80
+      # ASCII byte: keep as-is
+      out << b.chr
+      i += 1
+    elsif b >= 0xE0 && (i + 2) < bytes.bytesize
+      # 3-byte UTF-8
+      cp = ((b & 0x0F) << 12) |
+           ((bytes.getbyte(i + 1) & 0x3F) << 6) |
+           (bytes.getbyte(i + 2) & 0x3F)
+      if cp >= HIRAGANA_BASE && cp <= HIRAGANA_END
+        out << (cp - HIRAGANA_BASE + 1).chr
+      else
+        # Non-hiragana: keep UTF-8
+        out << bytes.byteslice(i, 3)
+      end
+      i += 3
+    elsif b >= 0xC0 && (i + 1) < bytes.bytesize
+      # 2-byte UTF-8: keep as-is
+      out << bytes.byteslice(i, 2)
+      i += 2
+    else
+      out << b.chr
+      i += 1
+    end
+  end
+  out
+end
 
 def fnv1a(data)
   hash = 0x811c9dc5
@@ -58,8 +102,8 @@ def pack_skk(entries)
   data = String.new(encoding: "BINARY")
 
   entries.each do |reading, candidates|
-    reading_bytes = reading.encode("UTF-8").b
-    bucket_idx = fnv1a(reading_bytes) % bucket_count
+    encoded_reading = encode_reading(reading)
+    bucket_idx = fnv1a(encoded_reading) % bucket_count
 
     # Entry: next(4) + reading_len(1) + candidate_count(1) + reading + candidates
     entry_offset = data_offset_base + data.bytesize
@@ -69,14 +113,14 @@ def pack_skk(entries)
     buckets[bucket_idx] = entry_offset
 
     entry = [prev_offset].pack("V")                    # next (uint32)
-    entry << [reading_bytes.bytesize].pack("C")         # reading_len (uint8)
+    entry << [encoded_reading.bytesize].pack("C")       # reading_len (uint8)
     entry << [candidates.size].pack("C")                # candidate_count (uint8)
-    entry << reading_bytes                              # reading
+    entry << encoded_reading                            # reading (compact encoded)
 
     candidates.each do |cand|
       cand_bytes = cand.encode("UTF-8").b
       entry << [cand_bytes.bytesize].pack("C")          # candidate len (uint8)
-      entry << cand_bytes                               # candidate text
+      entry << cand_bytes                               # candidate text (UTF-8)
     end
 
     data << entry

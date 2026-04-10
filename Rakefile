@@ -16,7 +16,7 @@ OPENOCD_SCRIPTS = ENV["OPENOCD_SCRIPTS"] || File.expand_path("~/.pico-sdk/openoc
 directory BUILD_DIR
 
 SCRIPTS = "scripts"
-SKK_SRC = "data/skk-dev-dict/SKK-JISYO.M"
+SKK_SRC = "data/skk-dev-dict/SKK-JISYO.ML"
 TCODE_SRC = "data/tc/tc-tbl.el"
 
 task default: :uf2
