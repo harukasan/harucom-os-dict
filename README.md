@@ -29,16 +29,22 @@ rake
 
 This produces `build/dict.uf2`.
 
-## Flash
+### Flash
 
-Write the dictionary to the Harucom Board using picotool:
+Write the dictionary to the Harucom Board. The dictionary occupies a 2 MB
+region at flash offset `0x00600000`, separate from the firmware.
+
+Via picotool (BOOTSEL mode):
 
 ```sh
 picotool load build/dict.uf2
 ```
 
-The dictionary occupies a 2 MB region at flash offset 0x00600000, separate
-from the firmware.
+Via openocd (picoprobe/CMSIS-DAP):
+
+```sh
+rake flashocd
+```
 
 ## Binary format
 

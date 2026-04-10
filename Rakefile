@@ -7,7 +7,11 @@
 #   build/dict.bin -> build/dict.uf2 (UF2 for picotool)
 
 DICT_XIP_BASE = 0x10600000
+DICT_FLASH_OFFSET = 0x00600000
 BUILD_DIR = "build"
+
+OPENOCD = ENV["OPENOCD"] || File.expand_path("~/.pico-sdk/openocd/0.12.0+dev/openocd")
+OPENOCD_SCRIPTS = ENV["OPENOCD_SCRIPTS"] || File.expand_path("~/.pico-sdk/openocd/0.12.0+dev/scripts")
 
 directory BUILD_DIR
 
@@ -60,4 +64,17 @@ end
 # UF2 output
 file "#{BUILD_DIR}/dict.uf2" => ["#{BUILD_DIR}/dict.bin", "#{SCRIPTS}/bin2uf2.rb"] do
   sh "ruby #{SCRIPTS}/bin2uf2.rb #{BUILD_DIR}/dict.bin -o #{BUILD_DIR}/dict.uf2 --base 0x#{DICT_XIP_BASE.to_s(16)}"
+end
+
+desc "Flash dictionary via openocd (picoprobe/CMSIS-DAP)"
+task flashocd: "#{BUILD_DIR}/dict.bin" do
+  sh "#{OPENOCD} -s #{OPENOCD_SCRIPTS}" \
+     " -f interface/cmsis-dap.cfg -f target/rp2350.cfg" \
+     " -c 'adapter speed 5000'" \
+     " -c 'init'" \
+     " -c 'halt'" \
+     " -c 'flash write_image erase #{BUILD_DIR}/dict.bin 0x#{DICT_XIP_BASE.to_s(16)}'" \
+     " -c 'verify_image #{BUILD_DIR}/dict.bin 0x#{DICT_XIP_BASE.to_s(16)}'" \
+     " -c 'resume'" \
+     " -c 'exit'"
 end
