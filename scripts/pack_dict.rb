@@ -10,7 +10,10 @@
 require "optparse"
 
 DICT_MAGIC   = 0x4B444348  # "HCDK"
-DICT_VERSION = 1
+# Bumped whenever the meaning of the packed data changes, so a firmware
+# that knows a later format refuses an image built by an older one
+# instead of reading it as if nothing had changed.
+DICT_VERSION = 2
 DICT_TYPE_SKK   = 1
 DICT_TYPE_TCODE = 2
 

@@ -53,7 +53,7 @@ The UF2 writes to XIP address `0x10600000` with the following layout:
 | Offset | Field | Description |
 |--------|-------|-------------|
 | 0 | magic | `0x4B444348` ("HCDK") |
-| 4 | version | Format version (currently 1) |
+| 4 | version | Format version (currently 2) |
 | 8 | section_count | Number of sections |
 | 12 | sections[] | Section descriptors (type, offset, size) |
 | ... | section data | SKK hash table, T-Code lookup table |
@@ -65,7 +65,9 @@ its conversion candidates.
 
 ### T-Code section (type 2)
 
-40x40 array of uint16 Unicode codepoints for two-stroke direct kanji input.
+40x40 array of uint16 Unicode codepoints for two-stroke direct kanji input,
+indexed as `table[first stroke * 40 + second stroke]`. A zero means the pair
+carries no character.
 
 ## License
 
