@@ -3,6 +3,12 @@
 # Input:  tc-tbl.el from the tc package (Emacs Lisp)
 # Output: Binary 40x40 table of uint16 Unicode codepoints
 #
+# The tcode-tbl vector is indexed as tbl[second stroke][first stroke]. tc.el
+# builds its lookup table with (aset (aref new-table k2) k1 char), so the row
+# selects the second keystroke and the column the first one. Rows are padded
+# with half-width spaces to keep the ASCII entries aligned to full-width
+# columns. tc.el drops them with (delq ?\  (string-to-list v)) before indexing.
+#
 # Usage:
 #   ruby convert_tcode_table.rb data/tc/tc-tbl.el -o tcode.bin
 
@@ -10,8 +16,8 @@ require "optparse"
 
 KEY_COUNT = 40
 
-# Characters to skip (not actual kanji/kana)
-SPECIAL_CHARS = ["■", "◆", "◇", "◈"]
+# Characters to skip (tcode-non-2-stroke-char-list)
+SPECIAL_CHARS = ["■", "◆", "◇"]
 
 def read_tcode_tbl_el(path)
   table = Array.new(KEY_COUNT * KEY_COUNT, 0)
@@ -35,18 +41,26 @@ def read_tcode_tbl_el(path)
     m = line.match(/"(.+)"/)
     next unless m
 
-    chars = m[1].chars
+    abort "Error: tcode-tbl has more than #{KEY_COUNT} rows" if row >= KEY_COUNT
+
+    chars = m[1].delete(" ").chars
+    unless chars.size == KEY_COUNT
+      abort "Error: row #{row} holds #{chars.size} characters, expected #{KEY_COUNT}"
+    end
+
     chars.each_with_index do |ch, col|
-      next if col >= KEY_COUNT
       next if SPECIAL_CHARS.include?(ch)
 
       cp = ch.ord
       next if cp == 0 || cp > 0xFFFF
 
-      table[row * KEY_COUNT + col] = cp
+      # Column is the first stroke, row is the second one
+      table[col * KEY_COUNT + row] = cp
     end
     row += 1
   end
+
+  abort "Error: tcode-tbl has #{row} rows, expected #{KEY_COUNT}" unless row == KEY_COUNT
 
   table
 end
